@@ -67,6 +67,23 @@ func (h Hand) printHand() {
 	fmt.Println()
 }
 
+func (c Combo) printCombo() {
+	rankP := map[int] string{0:"2",1:"3",2:"4",3:"5",
+			 4:"6",5:"7",6:"8",7:"9",
+			 8:"T",9:"J",10:"Q",11:"K",12:"A"}
+	suitP := map[int] string{0:"C",1:"D",2:"H",3:"S"}
+
+	for _, cards := range c {
+		fmt.Printf(" [")
+		for _, card := range cards {
+			fmt.Printf("%s%s ",rankP[card.Rank], suitP[card.Suit])
+		}
+		fmt.Printf("]\n")
+	}
+	fmt.Println()
+}
+
+
 type Players []Hand
 
 type Dealer Hand
@@ -161,9 +178,9 @@ func evaluate(d Deck, pl Players, dealer Hand, numPlayers int) {
 		pl[hand].attr.numCl = numCl
 		//Determine hand value
 		
-		var possibleHands []Cards
+		var possibleHands Combo
 		possibleHands = genHands(pl[hand], 2, dealer, 3)
-		fmt.Println(possibleHands)
+		possibleHands.printCombo()
 	}
 }
 /*
@@ -203,42 +220,97 @@ func genHands(h1 Hand, numh1 int, h2 Hand, numh2 int )  []Cards {
 		panic(fmt.Sprintf("%d %d Invalid integer parameter", numh1, numh2))
 	}
 	combo1 := combinations(h1, numh1)
+//	fmt.Println(combo1)
 	combo2 := combinations(h2, numh2)
-	fmt.Println(combo1)
-	fmt.Println(combo2)
-	return combine(combo1, combo2)
+//	fmt.Println(combo2)
+	allCombos := combine(combo1, combo2)
+//	fmt.Println(allCombos)
+	return allCombos
 }
 
 func combine(combo1  []Cards, combo2  []Cards) []Cards { // to write, combine all possible combinations together
-	var allCombos  []Cards
+	allCombos := make([]Cards, 60)
+	ind := 0
+	for c1 := range combo1 {
+		for c2 := range combo2 {
+			combo3 := combo1[c1]
+			for cardInd := range combo2[c2] {
+				combo3 = append(combo3, combo2[c2][cardInd])
+			}
+			allCombos[ind] = combo3
+			ind += 1
+//			fmt.Println(combo1[c1], combo1[c1][0])
+//			fmt.Println(combo2[c2])
+//
+		}
+	}
 	return allCombos
 }
 
 func combinations(h Hand, r int)  []Cards {
 	//Generates all combinations of hand h, choosing r (nCr)
-	n := len(h.cards)	 
-	var combos []Cards 	//total number of possible combinations of r (nCr) for 5C3
-	hand := make(Cards, r)	//individual generated hands
-	fmt.Printf("Entering combinationsUtil from combinations - hand= ")
-	h.printHand()
-	return combinationsUtil(h, combos, hand, 0, n-1, 0, r)
+	n := len(h.cards)
+	var combos []Cards
+	var cards Cards
+	if r == 3 && n == 5 { // Dealer combinations 5C3 10 combos in total
+		h.printHand()
+		combos = make([]Cards, 10)
+		ind := 0
+		for i := 0; i < 3; i++ {
+			for j := i+1; j < 4; j++ {
+				for k := j+1; k < 5; k++ {
+					cards = make(Cards, 3 )
+					cards[0] = h.cards[i] 
+					cards[1] = h.cards[j]
+					cards[2] = h.cards[k]
+					combos[ind] = cards
+					ind = ind + 1
+				}
+			}
+		} 
+	} else {
+		if r == 2 && n == 4 { // player hand 4C2 6 combos
+			h.printHand()
+			combos = make([]Cards, 6)
+			var ind int = 0
+			for i := 0; i < 3; i++ {
+				for j := i+1; j < 4; j++ {
+					cards = make(Cards, 2)
+					cards[0] = h.cards[i] 
+					cards[1] = h.cards[j]
+					combos[ind] = cards
+					ind += 1
+				}
+			}
+		} else {
+			hand := make(Cards, r)	//individual generated hands
+			fmt.Printf("Entering combinationsUtil from combinations - hand= ")
+			h.printHand()
+			c := make(chan []Card)
+			go combinationsUtil(h, combos, hand, 0, n-1, 0, r, c)
+			for h1 := range c {
+        		println( "recv from c", h1 )
+				combos = append(combos, h1)        		
+    		}
+		}
+	}
+	return combos
 }
 
-func combinationsUtil(h Hand, combos []Cards, hand Cards, start, end, index, r int) []Cards {
+func combinationsUtil(h Hand, combos []Cards, hand Cards, start, end, index, r int, c chan []Card) {
 
 //	if start == 0 { indPos = 0 }
 	if index == r { //hand has been generated
-		combos = append(combos, hand)
-		fmt.Println("Combos: ",combos)
-		return combos
+		fmt.Println(hand)
+		c <- hand
 	}
 
 	for i := start; i <= end && end-i+1 >= r-index; i++ {
 //		fmt.Printf("i= %d start= %d end= %d index= %d r= %d\n", i, start, end, index, r)
 	   	hand[index] = h.cards[i]
-    	combinationsUtil(h, combos, hand, i+1, end, index+1, r)
+	   	combinationsUtil(h, combos, hand, i+1, end, index+1, r, c)
     }
-    return combos
+    close(c)
 }
 
 
