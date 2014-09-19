@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"time"
 	"strconv"
+	"sort"
 )
 
 type Card struct {
@@ -83,6 +84,43 @@ func (c Combo) printCombo() {
 	fmt.Println()
 }
 
+func (c Cards) printCards() {
+	rankP := map[int] string{0:"2",1:"3",2:"4",3:"5",
+		 4:"6",5:"7",6:"8",7:"9",
+		 8:"T",9:"J",10:"Q",11:"K",12:"A"}
+	suitP := map[int] string{0:"C",1:"D",2:"H",3:"S"}
+
+	for i := range c {
+		fmt.Printf("%s%s ", rankP[c[i].Rank], suitP[c[i].Suit])
+	}
+	fmt.Println()
+}
+
+func (cards Cards) Len() int {
+	return len(cards)
+}
+
+func (cards Cards) Less(i, j int) bool {
+    if cards[i].Suit > cards[j].Suit {
+        return true 
+    } else {
+        if cards[i].Suit == cards[j].Suit && cards[i].Rank > cards[j].Rank {
+            return true
+        } 
+    }
+    return false
+}
+
+func (cards Cards) Swap(i, j int) {
+    cards[i], cards[j] = cards[j], cards[i]
+}
+
+func (cards Cards) String() string {
+    sort.Sort(cards)
+    str := "["
+ 	cards.printCards()
+    return str + "]"
+}
 
 type Players []Hand
 
@@ -92,12 +130,16 @@ type Cards []Card
 
 type Combo []Cards
 
+type HandEval struct {
+	
+}
 
 type Attributes struct {
 	numCl			int	//number of cards in each suit
 	numDi			int
 	numHe			int
 	numSp			int
+	hasRoyalFlush	bool
 	hasStrFlush		bool
 	has4Kind		bool
 	hasFullHouse	bool
@@ -148,6 +190,7 @@ func main() {
 	evaluate(d, pl, dealer, numPlayers)
 }
 func evaluate(d Deck, pl Players, dealer Hand, numPlayers int) {
+
 	var numSp, numHe, numDi, numCl int
 	for card := range dealer.cards {
 		switch dealer.cards[card].Suit {
@@ -177,11 +220,33 @@ func evaluate(d Deck, pl Players, dealer Hand, numPlayers int) {
 		pl[hand].attr.numDi = numDi
 		pl[hand].attr.numCl = numCl
 		//Determine hand value
-		
 		var possibleHands Combo
 		possibleHands = genHands(pl[hand], 2, dealer, 3)
-		possibleHands.printCombo()
+	//	possibleHands.printCombo()
+		for hand := range possibleHands {
+			var attr Attributes
+			attr = getAttributes(possibleHands[hand], attr)
+		}
 	}
+}
+
+func getAttributes(hand Cards, attr Attributes) Attributes {
+	var numSp, numHe, numDi, numCl int
+	for card := range hand {
+		switch hand[card].Suit {
+		case 0: numCl++
+		case 1: numDi++
+		case 2: numHe++
+		case 3: numSp++
+		}
+	}
+	attr.numSp = numSp
+	attr.numHe = numHe
+	attr.numDi = numDi
+	attr.numCl = numCl
+	fmt.Println(hand)
+	fmt.Println("next hand")
+	return attr
 }
 /*
 		select {
