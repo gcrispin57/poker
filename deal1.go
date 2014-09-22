@@ -183,22 +183,6 @@ type Attributes struct {
 	hasNoPair		bool
 	handResult		string
 }
-/*
-func New(deck interface{}) (Deck error) {
-		deck = make([] Card, 52)
-	for i := 0; i < 13; i++ {
-		for j := 0; j < 4; j++ {
-			deck[j*13 + i] = Card{i, j}
-		}
-	}
-}
-
-
-func (deck Deck) NewDeck() {
-	deck = {Card{0,0}, Card{0,1}}
-//	return deck
-}
-*/
 
 func main() {
 	rand.Seed( time.Now().UTC().UnixNano())
