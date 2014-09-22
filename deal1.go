@@ -14,6 +14,39 @@ type Card struct {
 }
 
 
+// By is the type of a "less" function that defines the ordering of its Card arguments.
+type By func(c1, c2 *Card) bool
+
+// Sort is a method on the function type, By, that sorts the argument slice according to the function.
+func (by By) Sort(cards Cards) {
+	cs := &cardSorter{
+		cards: cards,
+		by:      by, // The Sort method's receiver is the function (closure) that defines the sort order.
+	}
+	sort.Sort(cs)
+}
+
+// planetSorter joins a By function and a slice of Planets to be sorted.
+type cardSorter struct {
+	cards Cards
+	by      func(p1, p2 *Card) bool // Closure used in the Less method.
+}
+
+// Len is part of sort.Interface.
+func (s *cardSorter) Len() int {
+	return len(s.cards)
+}
+
+// Swap is part of sort.Interface.
+func (s *cardSorter) Swap(i, j int) {
+	s.cards[i], s.cards[j] = s.cards[j], s.cards[i]
+}
+
+// Less is part of sort.Interface. It is implemented by calling the "by" closure in the sorter.
+func (s *cardSorter) Less(i, j int) bool {
+	return s.by(&s.cards[i], &s.cards[j])
+}
+
 type Deck struct {
 	cards []Card
 	ind int // points to "top" of deck
@@ -84,17 +117,6 @@ func (c Combo) printCombo() {
 	fmt.Println()
 }
 
-func (c Cards) printCards() {
-	rankP := map[int] string{0:"2",1:"3",2:"4",3:"5",
-		 4:"6",5:"7",6:"8",7:"9",
-		 8:"T",9:"J",10:"Q",11:"K",12:"A"}
-	suitP := map[int] string{0:"C",1:"D",2:"H",3:"S"}
-
-	for i := range c {
-		fmt.Printf("%s%s ", rankP[c[i].Rank], suitP[c[i].Suit])
-	}
-	fmt.Println()
-}
 
 func (cards Cards) Len() int {
 	return len(cards)
@@ -115,11 +137,21 @@ func (cards Cards) Swap(i, j int) {
     cards[i], cards[j] = cards[j], cards[i]
 }
 
-func (cards Cards) String() string {
-    sort.Sort(cards)
-    str := "["
- 	cards.printCards()
-    return str + "]"
+func (c Cards) String() string {
+	rankP := map[int] string{0:"2",1:"3",2:"4",3:"5",
+		 4:"6",5:"7",6:"8",7:"9",
+		 8:"T",9:"J",10:"Q",11:"K",12:"A"}
+	suitP := map[int] string{0:"C",1:"D",2:"H",3:"S"}
+	str := "["
+	for i, card := range c {
+		if i > 0 {
+			str += " "
+		}
+		str += rankP[card.Rank]
+		str += suitP[card.Suit]
+	}
+	str += "]"
+	return str
 }
 
 type Players []Hand
@@ -135,10 +167,10 @@ type HandEval struct {
 }
 
 type Attributes struct {
-	numCl			int	//number of cards in each suit
-	numDi			int
+	numSp			int	//number of cards in each suit
 	numHe			int
-	numSp			int
+	numDi			int
+	numCl			int
 	hasRoyalFlush	bool
 	hasStrFlush		bool
 	has4Kind		bool
@@ -230,7 +262,27 @@ func evaluate(d Deck, pl Players, dealer Hand, numPlayers int) {
 	}
 }
 
+
 func getAttributes(hand Cards, attr Attributes) Attributes {
+	var byRank = func(c1, c2 *Card) bool {
+		if c1.Rank > c2.Rank {
+			return true
+		}
+		if c1.Rank == c2.Rank && c1.Suit > c2.Suit {
+			return true
+		}
+		return false
+	}
+	var bySuit = func(c1, c2 *Card) bool {
+		return c1.Suit > c2.Suit
+	}
+//	hand1 := Cards{Card{0,0}, Card{1,1}, Card{2,2}, Card{3,3}}
+	fmt.Println("hand:", hand)
+	By(byRank).Sort(hand)
+		fmt.Println("By rank:", hand)
+	By(bySuit).Sort(hand)
+	fmt.Println("By suit:", hand)
+
 	var numSp, numHe, numDi, numCl int
 	for card := range hand {
 		switch hand[card].Suit {
@@ -244,7 +296,8 @@ func getAttributes(hand Cards, attr Attributes) Attributes {
 	attr.numHe = numHe
 	attr.numDi = numDi
 	attr.numCl = numCl
-	fmt.Println(hand)
+	fmt.Println(attr)
+//	fmt.Println(hand)
 	fmt.Println("next hand")
 	return attr
 }
