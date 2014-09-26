@@ -6,6 +6,7 @@ import (
 	"time"
 	"strconv"
 	"sort"
+//	"reflect"
 )
 
 type Card struct {
@@ -61,16 +62,48 @@ func (d Deck) initDeck() {
 	d.shuffle()
 }
 
-func (d Deck) printDeck() {
+func print(i interface{}) { //prints type Hand, Deck, or C
 	rankP := map[int] string{0:"2",1:"3",2:"4",3:"5",
 			 4:"6",5:"7",6:"8",7:"9",
 			 8:"T",9:"J",10:"Q",11:"K",12:"A"}
 	suitP := map[int] string{0:"C",1:"D",2:"H",3:"S"}
-	fmt.Printf("%s", "Deck: ")
-	for _, card := range d.cards {
-		fmt.Printf("%s%s ", rankP[card.Rank], suitP[card.Suit])
+//	var arr interface{}
+	switch t := i.(type) {
+	case Deck:
+		var arr = Deck(t)
+		fmt.Printf("%s", "Deck: ")
+		for _, card := range arr.cards {
+			fmt.Printf("%s%s ", rankP[card.Rank], suitP[card.Suit])
+		}
+		fmt.Println()
+	case Hand:
+		var arr = Hand(t)		
+		fmt.Printf("%s: ", arr.name)
+		for _, card := range arr.cards {
+			fmt.Printf("%s%s ", rankP[card.Rank], suitP[card.Suit])
+		}
+		fmt.Println()
+	case Combo:
+		var arr = Combo(t)
+		for _, cards := range arr {
+			fmt.Printf(" [")
+			for _, card := range cards {
+				fmt.Printf("%s%s ",rankP[card.Rank], suitP[card.Suit])
+			}
+			fmt.Printf("]\n")
+		}
+		fmt.Println()
+	case Cards:
+		var arr = Cards(t)
+		fmt.Printf("[")
+		for i, card := range arr {
+			if i != 0 && i != len(arr) {
+				fmt.Printf(" ")
+			}
+			fmt.Printf("%s%s", rankP[card.Rank], suitP[card.Suit])
+		}
+		fmt.Printf("]")
 	}
-	fmt.Println()
 }
 
 func (d Deck) shuffle() {
@@ -86,35 +119,6 @@ type Hand struct {
 	cards []Card
 	name string
 	attr Attributes
-}
-
-func (h Hand) printHand() {
-	rankP := map[int] string{0:"2",1:"3",2:"4",3:"5",
-			 4:"6",5:"7",6:"8",7:"9",
-			 8:"T",9:"J",10:"Q",11:"K",12:"A"}
-	suitP := map[int] string{0:"C",1:"D",2:"H",3:"S"}
-
-	fmt.Printf("%s: ", h.name)
-	for _, card := range h.cards {
-		fmt.Printf("%s%s ", rankP[card.Rank], suitP[card.Suit])
-	}
-	fmt.Println()
-}
-
-func (c Combo) printCombo() {
-	rankP := map[int] string{0:"2",1:"3",2:"4",3:"5",
-			 4:"6",5:"7",6:"8",7:"9",
-			 8:"T",9:"J",10:"Q",11:"K",12:"A"}
-	suitP := map[int] string{0:"C",1:"D",2:"H",3:"S"}
-
-	for _, cards := range c {
-		fmt.Printf(" [")
-		for _, card := range cards {
-			fmt.Printf("%s%s ",rankP[card.Rank], suitP[card.Suit])
-		}
-		fmt.Printf("]\n")
-	}
-	fmt.Println()
 }
 
 
@@ -167,6 +171,8 @@ type HandEval struct {
 }
 
 type Attributes struct {
+	handValue		int 	// numeric representation of handValue (ie Flush = 6, not evaluated = 0)
+	handResult		string
 	numSp			int	//number of cards in each suit
 	numHe			int
 	numDi			int
@@ -181,7 +187,23 @@ type Attributes struct {
 	hasTwoPair		bool
 	hasPair 		bool
 	hasNoPair		bool
-	handResult		string
+}
+
+// map of hand evaluations
+func handValues() map[int]string {
+	return map[int]string {
+		0: "not evaluated",
+		1: "No Pair",
+		2: "Pair",
+		3: "Two Pair",
+		4: "Trips",
+		5: "Straight",
+		6: "Flush",
+		7: "Full House",
+		8: "4 of a Kind",
+		9: "Straight Flush",
+		10: "Royal Flush",
+	} 
 }
 
 func main() {
@@ -192,7 +214,8 @@ func main() {
 	var d Deck
 	d.cards = make([]Card, 52)
 	d.initDeck()
-//	d.printDeck(rankP, suitP)
+	print(d)
+//	d.printDeck()
 	var pl Players
 	pl = make([]Hand, numPlayers)
 	var h Hand
@@ -206,7 +229,7 @@ func main() {
 	evaluate(d, pl, dealer, numPlayers)
 }
 func evaluate(d Deck, pl Players, dealer Hand, numPlayers int) {
-
+/*
 	var numSp, numHe, numDi, numCl int
 	for card := range dealer.cards {
 		switch dealer.cards[card].Suit {
@@ -235,60 +258,25 @@ func evaluate(d Deck, pl Players, dealer Hand, numPlayers int) {
 		pl[hand].attr.numHe = numHe
 		pl[hand].attr.numDi = numDi
 		pl[hand].attr.numCl = numCl
+*/
+
 		//Determine hand value
+	for hand := range pl {
 		var possibleHands Combo
 		possibleHands = genHands(pl[hand], 2, dealer, 3)
 	//	possibleHands.printCombo()
 		for hand := range possibleHands {
 			var attr Attributes
-			attr = getAttributes(possibleHands[hand], attr)
+			attr = getHandValue(possibleHands[hand], attr)
 		}
 	}
 }
 
+// Detemines the value of this specific hand and stores the result in attr
+func getHandValue(hand Cards, attr Attributes) Attributes {
+	// Map of Hand Values along with their String Representations
 
-func getAttributes(hand Cards, attr Attributes) Attributes {
-	var byRank = func(c1, c2 *Card) bool {
-		if c1.Rank > c2.Rank {
-			return true
-		}
-		if c1.Rank == c2.Rank && c1.Suit > c2.Suit {
-			return true
-		}
-		return false
-	}
-	var bySuit = func(c1, c2 *Card) bool {
-		return c1.Suit > c2.Suit
-	}
-//	hand1 := Cards{Card{0,0}, Card{1,1}, Card{2,2}, Card{3,3}}
-	fmt.Println("hand:", hand)
-	By(byRank).Sort(hand)
-		fmt.Println("By rank:", hand)
-	By(bySuit).Sort(hand)
-	fmt.Println("By suit:", hand)
-
-	var numSp, numHe, numDi, numCl int
-	for card := range hand {
-		switch hand[card].Suit {
-		case 0: numCl++
-		case 1: numDi++
-		case 2: numHe++
-		case 3: numSp++
-		}
-	}
-	attr.numSp = numSp
-	attr.numHe = numHe
-	attr.numDi = numDi
-	attr.numCl = numCl
-	fmt.Println(attr)
-//	fmt.Println(hand)
-	fmt.Println("next hand")
-	return attr
-}
 /*
-		select {
-		case hasStrFlush(pl[hand], dealer):
-			pl[hand].attr.handResult = "Straight Flush"
 		case hasFullHouse(pl[hand], dealer):
 			pl[hand].attr.handResult = "Full House"
 		case hasFlush(pl[hand], dealer):
@@ -304,8 +292,193 @@ func getAttributes(hand Cards, attr Attributes) Attributes {
 		case hasNoPair(pl[hand], dealer): 
 			pl[hand].attr.handResult = "Nothing" }
 		fmt.Println(pl[hand].attr)
-	}
 */
+
+
+	var byRank = func(c1, c2 *Card) bool {
+		if c1.Rank > c2.Rank {
+			return true
+		}
+		if c1.Rank == c2.Rank && c1.Suit > c2.Suit {
+			return true
+		}
+		return false
+	}
+//	var bySuit = func(c1, c2 *Card) bool {
+//		return c1.Suit > c2.Suit
+//	}
+//	hand1 := Cards{Card{0,0}, Card{1,1}, Card{2,2}, Card{3,3}}
+//	By(byRank).Sort(hand)
+//		fmt.Println("By rank:", hand)
+//	By(bySuit).Sort(hand)
+//	fmt.Println("By suit:", hand)
+
+	var numSp, numHe, numDi, numCl int
+	for card := range hand {
+		switch hand[card].Suit {
+		case 0: numCl++
+		case 1: numDi++
+		case 2: numHe++
+		case 3: numSp++
+		}
+	}
+	attr.numSp = numSp
+	attr.numHe = numHe
+	attr.numDi = numDi
+	attr.numCl = numCl
+//	fmt.Println(attr)
+
+//	handVals := getHandValues()
+// Flush and Straight and Straight Flush hand for testing= Cards{Card{0,0}, Card{1,0}, Card{2,0}, Card{3,0}, Card{4,0}}
+// 4 of a kind: Cards{Card{9,0}, Card{9,1}, Card{9,2}, Card{9,3}, Card{4,0}}
+// Full House: Cards{Card{9,0}, Card{9,1}, Card{4,2}, Card{4,3}, Card{4,0}}
+
+//	fmt.Println("h ", reflect.TypeOf(hand), hand)
+	print(hand)
+	switch {
+	case hasStrFlush(hand, byRank):
+		fmt.Println("Straight Flush!!")
+	case has4Kind(hand, byRank):
+		fmt.Println("4 of a kind!!")
+	case hasFullHouse(hand, byRank):
+		fmt.Println("Full House!!")
+	case hasFlush(hand):
+		fmt.Println("Flush!!")
+	case hasStraight(hand, byRank):
+		fmt.Println("Straight!!")
+	case hasTrips(hand, byRank):
+		fmt.Println("Trips!!")
+	case hasTwoPair(hand, byRank):
+		fmt.Println("Two Pair!!")
+	case hasPair(hand, byRank):
+		fmt.Println("One Pair!!")
+	case hasNoPair(hand, byRank):
+		fmt.Println("No Pair!!")
+	}
+//	fmt.Println(hand)
+	fmt.Println("next hand")
+	return attr
+}
+
+func hasStrFlush(h Cards, byRank By) bool {
+	return hasFlush(h) && hasStraight(h, byRank)
+}
+
+func has4Kind(h Cards, byRank By) bool {
+	By(byRank).Sort(h)
+	rank, cnt := 0, 0
+	for i, card := range h {
+		if i == 0 {
+			rank = card.Rank
+		} else {
+			if card.Rank != rank {
+				return false
+			} else {
+				cnt += 1
+				if cnt == 3 { return true }
+			}
+		}
+	}
+	return false
+}
+
+func hasFullHouse(h Cards, byRank By) bool {
+	By(byRank).Sort(h)
+	if sameRank(h[:3], h[3:]) { return true }
+	if sameRank(h[:2], h[2:]) { return true }
+	return false
+}
+
+// verify if all supplied card slices have cards of the same Rank
+func sameRank(arrCards ...Cards) bool {
+	for _, cs := range arrCards {
+		var rank = 0
+		for i, c := range cs {
+			if i == 0 {
+				rank = c.Rank
+			} else {
+				if c.Rank != rank { return false }
+			}
+		}
+	}
+	return true
+}
+
+func hasStraight(h Cards, byRank By) bool {
+	By(byRank).Sort(h)
+	rank := 0
+	for i, card := range h {
+		if i == 0 {
+			rank = card.Rank
+		} else {
+			if card.Rank != rank - 1 { return false }
+			rank -= 1
+		}
+	}
+	return true
+}
+
+func hasFlush(h Cards) bool {
+//	var flushSuit int
+	flushSuit := 0
+	for i, card := range h {
+		if i == 0 {
+			flushSuit = card.Suit
+		} else {
+			if card.Suit != flushSuit {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func hasTrips(h Cards, byRank By) bool {
+	By(byRank).Sort(h)
+	if has4Kind(h, byRank) || hasFullHouse(h, byRank) { return false }
+	if sameRank(h[:3]) || sameRank(h[2:]) { return true }
+	return false
+}
+
+func hasTwoPair(h Cards, byRank By) bool {
+	By(byRank).Sort(h)
+	if has4Kind(h, byRank) || hasFullHouse(h, byRank) ||
+		hasTrips(h, byRank) { return false }
+	cnt := 0
+	for i := 0; i + 2 <= len(h); i++ {
+		if sameRank(h[i:i+2]) { 
+			cnt += 1
+			i += 2
+		 }		
+	}
+	if cnt == 2 { return true }
+	return false
+}
+
+func hasPair(h Cards, byRank By) bool {
+	By(byRank).Sort(h)
+	if has4Kind(h, byRank) || hasFullHouse(h, byRank) ||
+		hasTrips(h, byRank) || hasTwoPair(h, byRank) { return false }
+	cnt := 0
+	for i := 0; i + 2 <= len(h); i++ {
+		if sameRank(h[i:i+2]) { 
+			cnt += 1
+			i += 2
+		 }		
+	}
+	if cnt == 1 { return true }
+	return false
+}
+
+func hasNoPair(h Cards, byRank By) bool {
+	if hasStrFlush(h, byRank) || has4Kind(h, byRank) ||
+		hasFullHouse(h, byRank) || hasFlush(h) ||
+		hasStraight(h, byRank) || hasTrips(h, byRank) ||
+		 hasTwoPair(h, byRank) {
+		  return false
+	}
+	return true
+}
 
 /*
 type Players []Hand
@@ -326,7 +499,7 @@ func genHands(h1 Hand, numh1 int, h2 Hand, numh2 int )  []Cards {
 	combo2 := combinations(h2, numh2)
 //	fmt.Println(combo2)
 	allCombos := combine(combo1, combo2)
-//	fmt.Println(allCombos)
+//	print(allCombos)
 	return allCombos
 }
 
@@ -355,7 +528,8 @@ func combinations(h Hand, r int)  []Cards {
 	var combos []Cards
 	var cards Cards
 	if r == 3 && n == 5 { // Dealer combinations 5C3 10 combos in total
-		h.printHand()
+		print(h)
+//		h.printHand()
 		combos = make([]Cards, 10)
 		ind := 0
 		for i := 0; i < 3; i++ {
@@ -372,7 +546,8 @@ func combinations(h Hand, r int)  []Cards {
 		} 
 	} else {
 		if r == 2 && n == 4 { // player hand 4C2 6 combos
-			h.printHand()
+//			h.printHand()
+			print(h)
 			combos = make([]Cards, 6)
 			var ind int = 0
 			for i := 0; i < 3; i++ {
@@ -387,7 +562,7 @@ func combinations(h Hand, r int)  []Cards {
 		} else {
 			hand := make(Cards, r)	//individual generated hands
 			fmt.Printf("Entering combinationsUtil from combinations - hand= ")
-			h.printHand()
+			print(h)
 			c := make(chan []Card)
 			go combinationsUtil(h, combos, hand, 0, n-1, 0, r, c)
 			for h1 := range c {
@@ -431,11 +606,11 @@ func dealGame(d Deck, pl Players, dealer Hand, numPlayers int) Hand {
 }
 
 func displayGame(d Deck, pl Players, dealer Hand) {
-	d.printDeck()
-	dealer.printHand()
+	print(d)
+	print(dealer)
 	//print Player's hands
 	for _, player := range pl {
-		player.printHand()
+		print(player)
 	}
 }
 
